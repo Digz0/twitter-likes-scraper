@@ -14,24 +14,17 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 load_dotenv()
 
 def setup_driver():
-    logging.info("Setting up Chrome driver...")
     options = Options()
     options.add_argument("--headless")
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920x1080")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
     return webdriver.Chrome(service=Service(os.getenv('CHROMEDRIVER_PATH')), options=options)
 
 def login_to_twitter(driver, username, password):
-    logging.info("Navigating to Twitter login page...")
     driver.get("https://twitter.com/login")
     try:
-        logging.info("Entering username...")
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'input[autocomplete="username"]'))).send_keys(username, Keys.RETURN)
-        logging.info("Entering password...")
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'input[name="password"]'))).send_keys(password, Keys.RETURN)
-        logging.info("Waiting for login to complete...")
         time.sleep(5)
         return True
     except TimeoutException:
@@ -46,10 +39,10 @@ def get_tweet_data(tweet):
         data['Image'] = tweet.find_element(By.CSS_SELECTOR, '[data-testid="tweetPhoto"] img').get_attribute('src')
         data['Url'] = tweet.find_element(By.CSS_SELECTOR, 'a[href*="/status/"]').get_attribute('href')
     except NoSuchElementException:
-        logging.warning(f"Some elements not found for tweet: {data['Username']}")
+        pass
     return data
 
-def get_tweets(driver, max_tweets=200, scroll_pause_time=2):
+def get_tweets(driver, max_tweets=200):
     tweets = []
     last_height = driver.execute_script("return document.body.scrollHeight")
     
@@ -63,7 +56,7 @@ def get_tweets(driver, max_tweets=200, scroll_pause_time=2):
                     break
         
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(scroll_pause_time)
+        time.sleep(2)
         new_height = driver.execute_script("return document.body.scrollHeight")
         if new_height == last_height:
             break
@@ -72,28 +65,20 @@ def get_tweets(driver, max_tweets=200, scroll_pause_time=2):
     return pd.DataFrame(tweets)
 
 def main(max_tweets, output_file):
-    driver = None
+    driver = setup_driver()
     try:
-        driver = setup_driver()
         if not login_to_twitter(driver, os.getenv('TWITTER_USERNAME'), os.getenv('TWITTER_PASSWORD')):
             return
 
-        logging.info(f"Navigating to likes page for user {os.getenv('TWITTER_USERNAME')}...")
         driver.get(f"https://twitter.com/{os.getenv('TWITTER_USERNAME')}/likes")
-        logging.info("Waiting for page to load...")
         time.sleep(5)
 
-        logging.info(f"Starting to collect tweets (max: {max_tweets})...")
         df = get_tweets(driver, max_tweets=max_tweets)
         df.to_csv(output_file, index=False)
         logging.info(f"Collected {len(df)} tweets. Data saved to {output_file}")
 
-    except KeyboardInterrupt:
-        logging.info("Script interrupted by user. Stopping...")
     finally:
-        if driver:
-            driver.quit()
-        logging.info("Script finished. Browser closed.")
+        driver.quit()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Scrape liked tweets from a Twitter account")
