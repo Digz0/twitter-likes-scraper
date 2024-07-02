@@ -14,6 +14,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 load_dotenv()
 
 def setup_driver():
+    logging.info("Setting up Chrome driver...")
     options = Options()
     options.add_argument("--headless")
     options.add_argument("--disable-gpu")
@@ -23,10 +24,14 @@ def setup_driver():
     return webdriver.Chrome(service=Service(os.getenv('CHROMEDRIVER_PATH')), options=options)
 
 def login_to_twitter(driver, username, password):
+    logging.info("Navigating to Twitter login page...")
     driver.get("https://twitter.com/login")
     try:
+        logging.info("Entering username...")
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'input[autocomplete="username"]'))).send_keys(username, Keys.RETURN)
+        logging.info("Entering password...")
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'input[name="password"]'))).send_keys(password, Keys.RETURN)
+        logging.info("Waiting for login to complete...")
         time.sleep(5)
         return True
     except TimeoutException:
@@ -72,9 +77,12 @@ def main(max_tweets, output_file):
         driver.quit()
         return
 
+    logging.info(f"Navigating to likes page for user {os.getenv('TWITTER_USERNAME')}...")
     driver.get(f"https://twitter.com/{os.getenv('TWITTER_USERNAME')}/likes")
+    logging.info("Waiting for page to load...")
     time.sleep(5)
 
+    logging.info(f"Starting to collect tweets (max: {max_tweets})...")
     df = get_tweets(driver, max_tweets=max_tweets)
     df.to_csv(output_file, index=False)
     logging.info(f"Collected {len(df)} tweets. Data saved to {output_file}")
