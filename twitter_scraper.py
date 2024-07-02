@@ -72,22 +72,28 @@ def get_tweets(driver, max_tweets=200, scroll_pause_time=2):
     return pd.DataFrame(tweets)
 
 def main(max_tweets, output_file):
-    driver = setup_driver()
-    if not login_to_twitter(driver, os.getenv('TWITTER_USERNAME'), os.getenv('TWITTER_PASSWORD')):
-        driver.quit()
-        return
+    driver = None
+    try:
+        driver = setup_driver()
+        if not login_to_twitter(driver, os.getenv('TWITTER_USERNAME'), os.getenv('TWITTER_PASSWORD')):
+            return
 
-    logging.info(f"Navigating to likes page for user {os.getenv('TWITTER_USERNAME')}...")
-    driver.get(f"https://twitter.com/{os.getenv('TWITTER_USERNAME')}/likes")
-    logging.info("Waiting for page to load...")
-    time.sleep(5)
+        logging.info(f"Navigating to likes page for user {os.getenv('TWITTER_USERNAME')}...")
+        driver.get(f"https://twitter.com/{os.getenv('TWITTER_USERNAME')}/likes")
+        logging.info("Waiting for page to load...")
+        time.sleep(5)
 
-    logging.info(f"Starting to collect tweets (max: {max_tweets})...")
-    df = get_tweets(driver, max_tweets=max_tweets)
-    df.to_csv(output_file, index=False)
-    logging.info(f"Collected {len(df)} tweets. Data saved to {output_file}")
+        logging.info(f"Starting to collect tweets (max: {max_tweets})...")
+        df = get_tweets(driver, max_tweets=max_tweets)
+        df.to_csv(output_file, index=False)
+        logging.info(f"Collected {len(df)} tweets. Data saved to {output_file}")
 
-    driver.quit()
+    except KeyboardInterrupt:
+        logging.info("Script interrupted by user. Stopping...")
+    finally:
+        if driver:
+            driver.quit()
+        logging.info("Script finished. Browser closed.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Scrape liked tweets from a Twitter account")
